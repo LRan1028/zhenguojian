@@ -1,0 +1,62 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      edition:
+        description: 'Edition'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - hongguo
+          - languo
+  push:
+    branches:
+      - main
+    paths:
+      - 'lib/**'
+      - 'native/**'
+      - 'ios/**'
+      - 'scripts/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install CocoaPods (if needed)
+        run: gem install cocoapods || true
+
+      - name: Build iOS (unsigned IPA)
+        run: python3 scripts/build_ios.py --edition ${{ github.event.inputs.edition || 'all' }}
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-${{ github.event.inputs.edition || 'all' }}
+          path: dist/ios/*ios*.ipa
+          retention-days: 14
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-checksums
+          path: dist/ios/SHA256SUMS.txt
+          retention-days: 14
